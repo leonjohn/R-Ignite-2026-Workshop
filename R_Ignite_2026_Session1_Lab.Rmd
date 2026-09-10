@@ -1,0 +1,108 @@
+---
+title: "R Ignite 2026 - Session 1 Hands-On Lab"
+author: "Participant Name"
+date: "September 11, 2026"
+output: html_document
+---
+
+# My First Health Data Analysis
+
+## Learning goals
+
+By the end of this lab, you will be able to create a small health dataset, inspect it, calculate descriptive statistics, create a visualization, and write a short interpretation.
+
+## 1. Create the data
+
+```{r}
+patient_data <- data.frame(
+  ID = 1:10,
+  Age = c(45, 50, 35, 60, 42, 29, 55, 48, 39, 67),
+  BMI = c(28, 32, 24, 35, 27, 23, 31, 29, 26, 34),
+  SystolicBP = c(122, 138, 118, 150, 128, 116, 142, 130, 124, 148),
+  Diabetes = c("No", "Yes", "No", "Yes", "No", "No", "Yes", "No", "No", "Yes")
+)
+patient_data
+```
+
+**Checkpoint:** Before running `dim()`, predict how many rows and columns the dataset contains.
+
+## 2. Inspect the data
+
+```{r}
+dim(patient_data)
+names(patient_data)
+str(patient_data)
+summary(patient_data)
+```
+
+1. What type of variable is `Age`?  
+2. What type of variable is `Diabetes`?  
+3. What is the largest BMI?  
+
+## 3. Descriptive statistics
+
+```{r}
+mean(patient_data$Age)
+mean(patient_data$BMI)
+sd(patient_data$BMI)
+mean(patient_data$SystolicBP)
+table(patient_data$Diabetes)
+```
+
+**Interpretation:** Write 1-2 sentences describing the typical age/BMI and the number of participants with diabetes.
+
+## 4. First visualization
+
+```{r}
+hist(patient_data$BMI,
+     main = "BMI Distribution",
+     xlab = "BMI",
+     ylab = "Frequency")
+```
+
+What does the distribution suggest?
+
+## 5. Optional ggplot2 version
+
+```{r, eval=FALSE}
+# Run install.packages("ggplot2") only if the package is not installed.
+library(ggplot2)
+
+ggplot(patient_data, aes(x = BMI)) +
+  geom_histogram(binwidth = 0.5, boundary = 0) +
+  labs(title = "BMI Distribution", x = "BMI", y = "Count")
+```
+
+## 6. You do it
+
+Change the graph to display `Age` instead of `BMI`. Change the title and x-axis label as well.
+
+## 7. Extension track
+
+```{r}
+diabetes_group <- subset(patient_data, Diabetes == "Yes")
+mean(diabetes_group$BMI)
+
+aggregate(BMI ~ Diabetes, data = patient_data, FUN = mean)
+
+plot(patient_data$Age, patient_data$SystolicBP,
+     xlab = "Age", ylab = "Systolic BP",
+     main = "Age and Systolic Blood Pressure")
+```
+
+**Extension question:** What additional analysis would you want before concluding that age is associated with blood pressure?
+
+## 8. Debugging mini-challenge
+
+The line below contains an error. Run it, read the message, and fix it.
+
+```{r, error=TRUE}
+mean(patient_data$bmi)
+```
+
+## Exit ticket
+
+- One R command I can now use:  
+- One thing I still find confusing:  
+- One health/research dataset I would like to analyze in R:  
+- Confidence using R now (1 = very low, 5 = very high):  
