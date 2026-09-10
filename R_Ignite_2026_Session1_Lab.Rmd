@@ -1,6 +1,6 @@
 ---
 title: "R Ignite 2026 - Session 1 Hands-On Lab"
-author: "Participant Name"
+author: "Leonard Johnson"
 date: "September 11, 2026"
 output: html_document
 ---
