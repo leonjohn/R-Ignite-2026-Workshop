@@ -1,0 +1,165 @@
+---
+title: "R Ignite 2026 - Session 2: Interactive R Primer with NHANES"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+## 1. Import directly from a URL
+
+```{r}
+url <- "https://raw.githubusercontent.com/statOmics/PSLSData/main/NHANES.csv"
+NHANES <- read.csv(url)
+# Save as a CSV file
+#write.csv(NHANES, file = "HANES_R_Ignite.csv", row.names = FALSE)
+dim(NHANES)
+head(NHANES)
+names(NHANES)
+```
+
+The expected raw dimensions are 10,000 rows and 76 columns. If the room network is unavailable, use a previously downloaded copy with `read.csv("NHANES.csv")`.
+
+## 2. Inspect and create an adult person-level teaching dataset
+
+```{r}
+str(NHANES[c("ID","Gender","Age","Education","BMI","BPSysAve","Diabetes","HealthGen","PhysActive")])
+sum(duplicated(NHANES$ID))
+
+dat <- NHANES[!duplicated(NHANES$ID), ]
+dat <- subset(dat, Age >= 20)
+dim(dat)
+```
+
+Note: keeping the first row per repeated ID is a workshop simplification. In substantive research, investigate the reason for repeated records before choosing a dduplication rule.
+
+## 3. Missingness and descriptive statistics
+
+```{r}
+vars <- c("BMI","Gender","Diabetes","HealthGen","BPSysAve","Age","PhysActive")
+sapply(dat[vars], function(x) sum(is.na(x)))
+
+summary(dat$BMI)
+table(dat$Gender)
+prop.table(table(dat$Diabetes))
+with(dat, tapply(BMI, Gender, mean, na.rm=TRUE))
+```
+
+```{r}
+hist(dat$BMI, main="BMI Distribution", xlab="BMI (kg/m^2)")
+boxplot(BMI ~ Gender, data=dat, xlab="Gender", ylab="BMI (kg/m^2)")
+```
+
+## 4. Welch two-sample t-test
+
+Research question: Does mean BMI differ between gender groups?
+
+- H0: the population mean BMI is equal in the two groups.
+- H1: the population means differ.
+
+```{r}
+tt <- t.test(BMI ~ Gender, data=dat)
+tt
+with(dat, tapply(BMI, Gender, mean, na.rm=TRUE))
+```
+
+## 5. Chi-square test of association
+
+Research question: Is diabetes status associated with gender?
+
+```{r}
+tab <- with(dat, table(Gender, Diabetes, useNA="no"))
+tab
+prop.table(tab, margin=1)
+chi <- chisq.test(tab)
+chi
+chi$expected
+```
+
+## 6. One-way ANOVA
+
+Research question: Does mean average systolic blood pressure differ across self-reported general-health categories?
+
+```{r}
+anova_dat <- subset(dat, !is.na(BPSysAve) & !is.na(HealthGen))
+anova_dat$HealthGen <- factor(anova_dat$HealthGen)
+boxplot(BPSysAve ~ HealthGen, data=anova_dat, las=2,
+        ylab="Average systolic BP", xlab="General health")
+
+fit_aov <- aov(BPSysAve ~ HealthGen, data=anova_dat)
+summary(fit_aov)
+TukeyHSD(fit_aov)
+```
+
+### ANOVA diagnostics
+
+```{r}
+par(mfrow=c(1,2))
+plot(fit_aov, which=1)
+plot(fit_aov, which=2)
+par(mfrow=c(1,1))
+```
+
+## 7. Logistic regression
+
+Research question: How are age, BMI, gender and physical activity associated with the odds of diabetes?
+
+```{r}
+logit_dat <- subset(dat,
+  !is.na(Diabetes) & !is.na(Age) & !is.na(BMI) &
+  !is.na(Gender) & !is.na(PhysActive))
+
+logit_dat$Diabetes01 <- ifelse(logit_dat$Diabetes == "Yes", 1, 0)
+logit_dat$Gender <- factor(logit_dat$Gender)
+logit_dat$PhysActive <- factor(logit_dat$PhysActive)
+
+levels(logit_dat$Gender)
+levels(logit_dat$PhysActive)
+table(logit_dat$Diabetes01)
+
+fit_logit <- glm(Diabetes01 ~ Age + BMI + Gender + PhysActive,
+                 data=logit_dat, family=binomial)
+summary(fit_logit)
+```
+
+### Odds ratios and Wald 95% confidence intervals
+
+```{r}
+OR_table <- cbind(
+  OR = exp(coef(fit_logit)),
+  exp(confint.default(fit_logit))
+)
+colnames(OR_table) <- c("OR","2.5%","97.5%")
+round(OR_table, 2)
+```
+
+## 8. Predicted probabilities
+
+```{r}
+new_people <- data.frame(
+  Age=c(30,50,70),
+  BMI=c(24,30,36),
+  Gender=factor(c("female","female","female"), levels=levels(logit_dat$Gender)),
+  PhysActive=factor(c("Yes","Yes","No"), levels=levels(logit_dat$PhysActive))
+)
+new_people$Pr_Diabetes <- predict(fit_logit, newdata=new_people, type="response")
+new_people
+```
+
+These are model-based teaching estimates, not clinical risk scores.
+
+## 9. Extension track
+
+```{r}
+logit_dat$Age10 <- logit_dat$Age/10
+fit_logit_10 <- glm(Diabetes01 ~ Age10 + BMI + Gender + PhysActive,
+                    data=logit_dat, family=binomial)
+exp(coef(fit_logit_10))
+```
+
+## 10. Exit questions
+
+1. Why do we inspect and clean before hypothesis testing?
+2. When would you choose a t-test, chi-square test, or ANOVA?
+3. What does an odds ratio greater than 1 mean?
+4. Why should this workshop analysis not be described as causal or as a population-weighted NHANES analysis?
