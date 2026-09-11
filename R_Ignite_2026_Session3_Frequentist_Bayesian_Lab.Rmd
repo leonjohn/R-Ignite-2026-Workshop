@@ -1,0 +1,77 @@
+---
+title: "R Ignite 2026 - Session 3: Frequentist to Bayesian Inference"
+output: html_document
+---
+
+## Health question
+In a sample of 120 adults, 30 meet the study definition of hypertension.
+
+```{r}
+n <- 120
+x <- 30
+p_hat <- x/n
+p_hat
+```
+
+## 1. Frequentist confidence interval
+```{r}
+prop.test(x, n, correct = FALSE)
+```
+
+## 2. Frequentist hypothesis test
+H0: p = 0.20 versus H1: p != 0.20.
+
+```{r}
+prop.test(x, n, p = 0.20, correct = FALSE)
+```
+
+## 3. Bayesian prior
+Likelihood: X | p ~ Binomial(n,p). Prior: p ~ Beta(a,b).
+
+```{r}
+a <- 2
+b <- 8
+a/(a+b)
+```
+
+## 4. Posterior updating
+```{r}
+a_post <- a + x
+b_post <- b + n - x
+post_mean <- a_post/(a_post+b_post)
+post_ci <- qbeta(c(0.025, 0.975), a_post, b_post)
+post_mean
+post_ci
+```
+
+## 5. Posterior probability above 20%
+```{r}
+1 - pbeta(0.20, a_post, b_post)
+```
+
+## 6. Plot prior and posterior
+```{r}
+p <- seq(0, 0.6, length.out=500)
+plot(p, dbeta(p,a,b), type="l", lwd=2,
+     xlab="Hypertension prevalence p", ylab="Density",
+     main="Prior and Posterior")
+lines(p, dbeta(p,a_post,b_post), lwd=2, lty=2)
+legend("topright", c("Prior Beta(2,8)","Posterior"), lty=c(1,2), lwd=2)
+```
+
+## 7. Prior sensitivity
+```{r}
+priors <- list(uniform=c(1,1), weak=c(2,8), stronger=c(20,80))
+results <- do.call(rbind, lapply(priors, function(ab) {
+  ap <- ab[1] + x
+  bp <- ab[2] + n - x
+  c(mean=ap/(ap+bp),
+    lower=qbeta(.025,ap,bp),
+    upper=qbeta(.975,ap,bp),
+    prob_gt_20=1-pbeta(.20,ap,bp))
+}))
+results
+```
+
+## 8. Bridge to Session 6
+This Beta-Binomial posterior is available analytically. Realistic Bayesian regression and hierarchical health models often require numerical posterior computation. Session 6 introduces MCMC for that purpose.
