@@ -1,0 +1,88 @@
+---
+title: "R Ignite 2026 - Session 6: Bayesian Modeling with rstanarm"
+output: html_document
+---
+
+## Purpose
+Use familiar R formula syntax to fit, diagnose, and interpret a Bayesian logistic regression. No Stan-language programming is required.
+
+```{r setup, echo=FALSE}
+
+library(rstanarm)
+library(bayesplot)
+library(posterior)
+options(mc.cores = parallel::detectCores())
+set.seed(2026)
+```
+
+## 1. Data
+```{r}
+url <- "https://raw.githubusercontent.com/statOmics/PSLSData/main/NHANES.csv"
+NHANES <- read.csv(url)
+dat <- NHANES[!duplicated(NHANES$ID), ]
+dat <- subset(dat, Age >= 20 & !is.na(Diabetes) & !is.na(Age) & !is.na(BMI) & !is.na(PhysActive))
+dat$Diabetes01 <- ifelse(dat$Diabetes == "Yes", 1, 0)
+dat$Age10 <- dat$Age / 10
+dat$BMI5 <- dat$BMI / 5
+```
+
+## 2. Frequentist reference model
+```{r}
+fit_glm <- glm(Diabetes01 ~ Age10 + BMI5 + PhysActive, data=dat, family=binomial)
+summary(fit_glm)
+```
+
+## 3. Bayesian model with rstanarm
+```{r}
+fit_bayes <- stan_glm(
+  Diabetes01 ~ Age10 + BMI5 + PhysActive,
+  data=dat, family=binomial(link="logit"),
+  prior=normal(0,1,autoscale=FALSE),
+  prior_intercept=normal(-2,1.5,autoscale=FALSE),
+  chains=4, iter=2000, seed=2026, refresh=0
+)
+print(fit_bayes, digits=2)
+prior_summary(fit_bayes)
+```
+
+## 4. Diagnostics
+```{r}
+summary(fit_bayes$stanfit)
+mcmc_trace(as.array(fit_bayes), pars=c("Age10","BMI5"))
+```
+
+## 5. Credible intervals
+```{r}
+posterior_interval(fit_bayes, prob=.95)
+```
+
+## 6. Odds ratios and posterior probabilities
+```{r}
+draws <- as.matrix(fit_bayes)
+OR_Age10 <- exp(draws[,"Age10"])
+c(median=median(OR_Age10), quantile(OR_Age10,c(.025,.975)), prob_gt_1=mean(OR_Age10>1))
+```
+
+## 7. Posterior predictive check
+```{r}
+pp_check(fit_bayes, plotfun="bars", nreps=20)
+```
+
+## 8. Predicted probabilities
+```{r}
+new_patients <- data.frame(
+  Age10=c(3,5,7), BMI5=c(5,6,7),
+  PhysActive=factor(c("Yes","Yes","No"))
+)
+p_prob <- posterior_linpred(fit_bayes, newdata=new_patients, transform=TRUE)
+apply(p_prob,2,median)
+apply(p_prob,2,quantile,c(.025,.975))
+```
+
+## 9. Prior sensitivity (Extension Track)
+```{r}
+fit_wider <- update(fit_bayes, prior=normal(0,2,autoscale=FALSE))
+fit_tighter <- update(fit_bayes, prior=normal(0,.5,autoscale=FALSE))
+posterior_interval(fit_wider)
+posterior_interval(fit_tighter)
+```
